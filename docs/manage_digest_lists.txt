@@ -1,0 +1,94 @@
+manage_digest_lists(1)
+======================
+
+NAME
+----
+manage_digest_lists - manage digest lists lifecycle
+
+
+SYNOPSIS
+--------
+manage_digest_lists [options]
+
+
+DESCRIPTION
+------------
+manage_digest_lists can be used to manage the lifecycle of digest lists (e.g. generate, show).
+
+
+OPTIONS
+-------
+-d <directory>::
+	directory digest lists are written to
+
+-i <input>::
+	input digest list for an operation
+
+-L::
+	input is a list of files/directories
+
+-a <algo>::
+	digest list algorithm
+
+-f <format>::
+	digest list format
+
+-o <operation>::
+	operation to perform:::
+		gen::::
+			generate a digest list
+		show::::
+			show the content of a digest list
+		add-xattr::::
+			set the security.digest_list xattr to the digest list path
+		rm-xattr::::
+			remove the security.digest_list xattr
+		update-xattr::::
+			update the security.digest_list xattr if exists
+		add-seqnum::::
+			prepend a sequence number to each digest list file name
+		rm-seqnum::::
+			remove sequence number from each digest list file name
+
+-O <output>::
+	output file name of the digest list (in addition to <format>-)
+
+-t::
+	testing mode
+
+-h::
+	display help
+
+
+EXAMPLES
+--------
+Generate digest lists from the RPM database:
+
+# manage_digest_lists -d /etc/digest_lists -i rpmdb -o gen -f rpm
+
+
+Generate digest lists for the kernel modules (for custom kernels):
+
+# manage_digest_lists -d /etc/digest_lists -i /lib/modules/6.8.0-rc3+ -o gen -f tlv
+
+
+Show digest lists content in /etc/digest_lists
+
+# manage_digest_lists -i /etc/digest_lists -o show
+
+
+Add security.digest_list xattr for digest lists in /etc/digest_lists
+
+# manage_digest_lists -i /etc/digest_lists -o add-xattr
+
+
+AUTHOR
+------
+Written by Roberto Sassu, <roberto.sassu at huawei.com>.
+
+
+COPYING
+-------
+Copyright (C) 2017-2024 Huawei Technologies Duesseldorf GmbH. Free use of
+this software is granted under the terms of the GNU Public License 2.0
+(GPLv2).
