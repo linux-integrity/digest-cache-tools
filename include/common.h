@@ -45,6 +45,14 @@
 /* In stripped ARM and x86-64 modules, ~ is surprisingly rare. */
 #define MODULE_SIG_STRING "~Module signature appended~\n"
 
+#ifndef __packed
+#define __packed __attribute__((packed))
+#endif
+
+#ifndef __unused
+#define __unused __attribute__((unused))
+#endif
+
 enum pkey_id_type {
 	PKEY_ID_PGP,		/* OpenPGP generated key ID */
 	PKEY_ID_X509,		/* X.509 arbitrary subjectKeyIdentifier */
