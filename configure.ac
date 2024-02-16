@@ -69,6 +69,7 @@ AC_CONFIG_FILES([Makefile
 		 docs/Makefile
 		 include/Makefile
 		 lib/Makefile
+		 rpm-plugin/Makefile
 		 src/Makefile])
 AC_OUTPUT
 cat <<EOF
