@@ -39,6 +39,21 @@ AC_PROG_LIBTOOL
 AC_SEARCH_LIBS([SHA256_Init], [crypto])
 AC_CHECK_LIB([headerGet], rpm, [rpm=yes], [rpm=no], [])
 
+PKG_CHECK_EXISTS(cmocka,
+    [AC_CHECK_HEADERS([stdarg.h stddef.h setjmp.h],
+        [], dnl We are only interested in action-if-not-found
+        [AC_MSG_WARN([Header files stdarg.h stddef.h setjmp.h are
+                      required by cmocka])
+         cmocka_required_headers="no"
+        ]
+    )
+    AS_IF([test x"$cmocka_required_headers" != x"no"],
+          [PKG_CHECK_MODULES([CMOCKA], [cmocka], [cmocka="yes"])]
+    )],
+    dnl PKG_CHECK_EXISTS ACTION-IF-NOT-FOUND
+    [AC_MSG_WARN([No libcmocka library found, cmocka tests
+                  will not be built])])
+
 # Checks for header files.
 AC_CHECK_HEADERS([fcntl.h stdlib.h string.h unistd.h])
 AC_CHECK_HEADERS([openssl/evp.h], [], [crypto=no])
@@ -64,13 +79,15 @@ CFLAGS="$CFLAGS -Wall -Werror -Wextra"
 AC_SUBST(CFLAGS)
 
 AM_CONDITIONAL([RPM], [test "$rpm" = yes])
+AM_CONDITIONAL([CMOCKA], [test "$cmocka" = yes])
 
 AC_CONFIG_FILES([Makefile
 		 docs/Makefile
 		 include/Makefile
 		 lib/Makefile
 		 rpm-plugin/Makefile
-		 src/Makefile])
+		 src/Makefile
+		 tests/Makefile])
 AC_OUTPUT
 cat <<EOF
 

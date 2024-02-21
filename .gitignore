@@ -30,3 +30,8 @@ ltmain.sh
 
 docs/*.1
 src/manage_digest_lists
+
+test-driver
+tests/*.log
+tests/*.trs
+tests/gen

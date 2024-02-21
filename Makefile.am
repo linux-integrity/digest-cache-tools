@@ -2,7 +2,8 @@ SUBDIRS = docs \
 	  include \
 	  lib \
 	  rpm-plugin \
-	  src
+	  src \
+	  tests
 
 EXTRA_DIST = AUTHORS \
 	     CHANGES \
