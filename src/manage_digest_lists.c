@@ -48,10 +48,12 @@ const char *ops_str[OP__LAST] = {
 struct generator generators[] = {
 	{ .name = "tlv", .new = tlv_list_gen_new, .add = tlv_list_gen_add,
 	  .close = tlv_list_gen_close },
+	{ .name = "rpm", .add = rpm_list_gen_add },
 };
 
 struct parser parsers[] = {
 	{ .name = "tlv", .parse = tlv_list_parse },
+	{ .name = "rpm", .parse = rpm_list_parse },
 };
 
 static char *get_path_ima(char *line)

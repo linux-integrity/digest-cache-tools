@@ -13,3 +13,5 @@
 
 int tlv_list_parse(const char *digest_list_path, __u8 *data, size_t data_len,
 		   enum ops op);
+int rpm_list_parse(const char *digest_list_path, __u8 *data, size_t data_len,
+		   enum ops op);

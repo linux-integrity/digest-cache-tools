@@ -37,10 +37,12 @@ AC_PROG_LIBTOOL
 
 # Checks for libraries.
 AC_SEARCH_LIBS([SHA256_Init], [crypto])
+AC_CHECK_LIB([headerGet], rpm, [rpm=yes], [rpm=no], [])
 
 # Checks for header files.
 AC_CHECK_HEADERS([fcntl.h stdlib.h string.h unistd.h])
 AC_CHECK_HEADERS([openssl/evp.h], [], [crypto=no])
+AC_CHECK_HEADERS([rpm/rpmlib.h], [], [rpm=no])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL
@@ -60,6 +62,8 @@ AC_CHECK_FUNCS([ftruncate memset munmap strstr])
 CFLAGS="$CFLAGS -Wall -Werror -Wextra"
 
 AC_SUBST(CFLAGS)
+
+AM_CONDITIONAL([RPM], [test "$rpm" = yes])
 
 AC_CONFIG_FILES([Makefile
 		 docs/Makefile

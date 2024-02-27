@@ -15,3 +15,5 @@ void *tlv_list_gen_new(int dirfd, char *input, char *output,
 		       enum hash_algo algo);
 int tlv_list_gen_add(int dirfd, void *ptr, char *input);
 void tlv_list_gen_close(void *ptr);
+
+int rpm_list_gen_add(int dirfd, void *ptr, char *input);
