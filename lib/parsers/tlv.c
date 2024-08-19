@@ -30,6 +30,7 @@
 struct tlv_parse_ctx {
 	const char *digest_list_path;
 	size_t digest_list_path_len;
+	__u64 parsed_num_entries;
 	enum hash_algo algo;
 	enum ops op;
 };
@@ -128,8 +129,20 @@ static int parse_entry_path(struct tlv_parse_ctx *ctx,
 	return ret;
 }
 
-static int entry_callback(void *callback_data, __u64 field,
-			  const __u8 *field_data, __u64 field_data_len)
+static int digest_list_entry_hdr_callback(void *callback_data __unused,
+					  __u64 data_type,
+					  __u64 num_entries __unused,
+					  __u64 total_len __unused)
+{
+	if (data_type != DIGEST_LIST_ENTRY_DATA)
+		return 0;
+
+	return 1;
+}
+
+static int digest_list_entry_data_callback(void * callback_data, __u64 field,
+					   const __u8 *field_data,
+					   __u64 field_data_len)
 {
 	struct tlv_parse_ctx *ctx = (struct tlv_parse_ctx *)callback_data;
 	int ret;
@@ -156,15 +169,32 @@ static int parse_digest_list_entry(struct tlv_parse_ctx *ctx,
 				   enum digest_list_fields __unused field,
 				   const __u8 *field_data, __u64 field_data_len)
 {
-	return tlv_parse(DIGEST_LIST_ENTRY_DATA, entry_callback, ctx,
-			 field_data, field_data_len,
-			 digest_list_entry_types_str,
+	return tlv_parse(digest_list_entry_hdr_callback, NULL,
+			 digest_list_entry_data_callback, ctx, field_data,
+			 field_data_len, digest_list_entry_types_str,
 			 DIGEST_LIST_ENTRY__LAST, digest_list_entry_fields_str,
 			 DIGEST_LIST_ENTRY_FIELD__LAST);
 }
 
-static int digest_list_callback(void *callback_data, __u64 field,
-				const __u8 *field_data, __u64 field_data_len)
+static int digest_list_hdr_callback(void *callback_data, __u64 data_type,
+				    __u64 num_entries, __u64 total_len __unused)
+{
+	struct tlv_parse_ctx *ctx = (struct tlv_parse_ctx *)callback_data;
+
+	if (data_type != DIGEST_LIST_FILE)
+		return 0;
+
+	/* At the moment we process only one block. */
+	if (ctx->parsed_num_entries)
+		return -EINVAL;
+
+	ctx->parsed_num_entries = num_entries;
+	return 1;
+}
+
+static int digest_list_data_callback(void *callback_data, __u64 field,
+				     const __u8 *field_data,
+				     __u64 field_data_len)
 {
 	struct tlv_parse_ctx *ctx = (struct tlv_parse_ctx *)callback_data;
 	int ret;
@@ -196,7 +226,8 @@ int tlv_list_parse(const char *digest_list_path, __u8 *data, size_t data_len,
 		.digest_list_path_len = strlen(digest_list_path)
 	};
 
-	return tlv_parse(DIGEST_LIST_FILE, digest_list_callback, &ctx, data,
-			 data_len, digest_list_types_str, DIGEST_LIST__LAST,
+	return tlv_parse(digest_list_hdr_callback, &ctx,
+			 digest_list_data_callback, &ctx, data, data_len,
+			 digest_list_types_str, DIGEST_LIST__LAST,
 			 digest_list_fields_str, DIGEST_LIST_FIELD__LAST);
 }

@@ -7,7 +7,7 @@
  * Implement the TLV parser.
  */
 
-#define pr_fmt(fmt) "TLV PARSER: "fmt
+#define pr_fmt(fmt) "tlv_parser: "fmt
 #include <tlv_parser.h>
 
 #include "common.h"
@@ -29,9 +29,10 @@
  *
  * Return: Zero on success, a negative value on error.
  */
-int tlv_parse_hdr(const __u8 **data, size_t *data_len, __u64 *parsed_data_type,
-		  __u64 *parsed_num_entries, __u64 *parsed_total_len,
-		  const char **data_types __unused, __u64 num_data_types)
+static int tlv_parse_hdr(const __u8 **data, size_t *data_len,
+			 __u64 *parsed_data_type, __u64 *parsed_num_entries,
+			 __u64 *parsed_total_len,
+			 const char **data_types __unused, __u64 num_data_types)
 {
 	struct tlv_hdr *hdr;
 
@@ -76,8 +77,8 @@ int tlv_parse_hdr(const __u8 **data, size_t *data_len, __u64 *parsed_data_type,
 
 /**
  * tlv_parse_data - Parse TLV data
- * @callback: Callback function to call to parse the entries
- * @callback_data: Opaque data to supply to the callback function
+ * @data_callback: Callback function to call to parse the data entries
+ * @data_callback_data: Opaque data to supply to the data callback function
  * @num_entries: Number of data entries to parse
  * @data: Data to parse
  * @data_len: Length of @data
@@ -87,13 +88,14 @@ int tlv_parse_hdr(const __u8 **data, size_t *data_len, __u64 *parsed_data_type,
  * Parse the data part of the TLV data format and call the supplied callback
  * function for each data entry, passing also the opaque data pointer.
  *
- * The callback function decides how to process data depending on the field.
+ * The data callback function decides how to process data depending on the
+ * field.
  *
  * Return: Zero on success, a negative value on error.
  */
-int tlv_parse_data(parse_callback callback, void *callback_data,
-		   __u64 num_entries, const __u8 *data, size_t data_len,
-		   const char **fields __unused, __u64 num_fields)
+static int tlv_parse_data(data_callback data_callback, void *data_callback_data,
+			  __u64 num_entries, const __u8 *data, size_t data_len,
+			  const char **fields __unused, __u64 num_fields)
 {
 	const __u8 *data_ptr = data;
 	struct tlv_data_entry *entry;
@@ -102,7 +104,7 @@ int tlv_parse_data(parse_callback callback, void *callback_data,
 
 	max_num_entries = data_len / sizeof(*entry);
 
-	/* Finite termination on num_entries. */
+	/* Possibly lower limit on num_entries loop. */
 	if (num_entries > max_num_entries)
 		return -EBADMSG;
 
@@ -132,7 +134,8 @@ int tlv_parse_data(parse_callback callback, void *callback_data,
 		if (!len)
 			continue;
 
-		ret = callback(callback_data, parsed_field, data_ptr, len);
+		ret = data_callback(data_callback_data, parsed_field, data_ptr,
+				    len);
 		if (ret < 0) {
 			pr_debug("Parsing of field %s failed, ret: %d\n",
 				 fields[parsed_field], ret);
@@ -153,9 +156,10 @@ int tlv_parse_data(parse_callback callback, void *callback_data,
 
 /**
  * tlv_parse - Parse data in TLV format
- * @expected_data_type: Desired data type
- * @callback: Callback function to call to parse the data entries
- * @callback_data: Opaque data to supply to the callback function
+ * @hdr_callback: Callback function to call after parsing header
+ * @hdr_callback_data: Opaque data to supply to the header callback function
+ * @data_callback: Callback function to call to parse the data entries
+ * @data_callback_data: Opaque data to supply to the data callback function
  * @data: Data to parse
  * @data_len: Length of @data
  * @data_types: Array of data type strings
@@ -163,22 +167,21 @@ int tlv_parse_data(parse_callback callback, void *callback_data,
  * @fields: Array of field strings
  * @num_fields: Number of elements of @fields
  *
- * Parse data in TLV format and call tlv_parse_data() each time the header has
- * the same data type as the expected one.
+ * Parse data in TLV format and call tlv_parse_data() each time the header
+ * callback function returns 1.
  *
  * Return: Zero on success, a negative value on error.
  */
-int tlv_parse(__u64 expected_data_type, parse_callback callback,
-	      void *callback_data, const __u8 *data, size_t data_len,
-	      const char **data_types, __u64 num_data_types,
-	      const char **fields, __u64 num_fields)
+int tlv_parse(hdr_callback hdr_callback, void *hdr_callback_data,
+	      data_callback data_callback, void *data_callback_data,
+	      const __u8 *data, size_t data_len, const char **data_types,
+	      __u64 num_data_types, const char **fields, __u64 num_fields)
 {
 	__u64 parsed_data_type, parsed_num_entries, parsed_total_len;
 	const __u8 *data_ptr = data;
 	int ret = 0;
 
-	pr_debug("Start parsing data blob, size: %lu, expected data type: %s\n",
-		 data_len, data_types[expected_data_type]);
+	pr_debug("Start parsing data blob, size: %lu\n", data_len);
 
 	while (data_len) {
 		ret = tlv_parse_hdr(&data_ptr, &data_len, &parsed_data_type,
@@ -187,8 +190,10 @@ int tlv_parse(__u64 expected_data_type, parse_callback callback,
 		if (ret < 0)
 			goto out;
 
-		/* Skip data with a different data type than expected. */
-		if (parsed_data_type != expected_data_type) {
+		ret = hdr_callback(hdr_callback_data, parsed_data_type,
+				   parsed_num_entries, parsed_total_len);
+		switch (ret) {
+		case 0:
 			/*
 			 * tlv_parse_hdr() already checked that
 			 * parsed_total_len <= data_len.
@@ -196,12 +201,13 @@ int tlv_parse(__u64 expected_data_type, parse_callback callback,
 			data_ptr += parsed_total_len;
 			data_len -= parsed_total_len;
 			continue;
+		case 1:
+			break;
+		default:
+			goto out;
 		}
 
-		pr_debug("Found data type %s at offset %ld\n",
-			 data_types[parsed_data_type], data_ptr - data);
-
-		ret = tlv_parse_data(callback, callback_data,
+		ret = tlv_parse_data(data_callback, data_callback_data,
 				     parsed_num_entries, data_ptr,
 				     parsed_total_len, fields, num_fields);
 		if (ret < 0)
