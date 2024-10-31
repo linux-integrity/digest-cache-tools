@@ -24,14 +24,14 @@
 #define pr_debug(fmt, ...) { }
 #endif
 
-typedef int (*hdr_callback)(void *callback_data, __u64 data_type,
-			    __u64 num_entries, __u64 total_len);
-typedef int (*data_callback)(void *callback_data, __u64 field,
-			     const __u8 *field_data, __u64 field_len);
+typedef int (*hdr_callback)(void *callback_data, __u16 data_type,
+			    __u32 num_entries, __u32 total_len);
+typedef int (*data_callback)(void *callback_data, __u16 field,
+			     const __u8 *field_data, __u32 field_len);
 
 int tlv_parse(hdr_callback hdr_callback, void *hdr_callback_data,
 	      data_callback data_callback, void *data_callback_data,
 	      const __u8 *data, size_t data_len, const char **data_types,
-	      __u64 num_data_types, const char **fields, __u64 num_fields);
+	      __u16 num_data_types, const char **fields, __u32 num_fields);
 
 #endif /* _TLV_PARSER_H */

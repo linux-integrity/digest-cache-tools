@@ -98,14 +98,14 @@ static void write_entry(struct tlv_hdr *hdr, struct tlv_data_entry **entry,
 			bool update_data)
 {
 	__u16 num_entries;
-	__u64 total_len;
-	__u64 entry_len;
+	__u32 total_len;
+	__u32 entry_len;
 
-	num_entries = __be64_to_cpu(hdr->num_entries);
-	total_len = __be64_to_cpu(hdr->total_len);
+	num_entries = __be32_to_cpu(hdr->num_entries);
+	total_len = __be32_to_cpu(hdr->total_len);
 
-	(*entry)->field = __cpu_to_be64(field);
-	(*entry)->length = __cpu_to_be64(data_len);
+	(*entry)->field = __cpu_to_be16(field);
+	(*entry)->length = __cpu_to_be32(data_len);
 
 	if (update_data)
 		memcpy((*entry)->data, data, data_len);
@@ -114,8 +114,8 @@ static void write_entry(struct tlv_hdr *hdr, struct tlv_data_entry **entry,
 	entry_len = sizeof(*(*entry)) + data_len;
 	total_len += entry_len;
 
-	hdr->num_entries = __cpu_to_be64(num_entries);
-	hdr->total_len = __cpu_to_be64(total_len);
+	hdr->num_entries = __cpu_to_be32(num_entries);
+	hdr->total_len = __cpu_to_be32(total_len);
 	(*entry) = (struct tlv_data_entry *)((__u8 *)*entry + entry_len);
 }
 
@@ -123,7 +123,7 @@ void *tlv_list_gen_new(int __unused dirfd, char *input, char *output,
 		       enum hash_algo algo)
 {
 	struct tlv_struct *tlv;
-	__u64 _algo;
+	__u16 _algo;
 	int ret;
 
 	tlv = malloc(sizeof(*tlv));
@@ -140,7 +140,7 @@ void *tlv_list_gen_new(int __unused dirfd, char *input, char *output,
 	tlv->outer_entry = (struct tlv_data_entry *)(tlv->outer_hdr + 1);
 	tlv->algo = algo;
 
-	_algo = __cpu_to_be64(algo);
+	_algo = __cpu_to_be16(algo);
 	write_entry(tlv->outer_hdr, &tlv->outer_entry, DIGEST_LIST_ALGO,
 		    (__u8 *)&_algo, sizeof(_algo), true);
 	return tlv;
