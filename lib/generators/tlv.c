@@ -31,9 +31,10 @@
 
 struct tlv_struct {
 	__u8 *digest_list;
-	struct tlv_hdr *outer_hdr;
-	struct tlv_data_entry *outer_entry;
+	struct tlv_entry *num_entries_entry;
+	struct tlv_entry *outer_entry;
 	enum hash_algo algo;
+	__u32 num_entries;
 	int fd;
 };
 
@@ -41,7 +42,6 @@ static int new_digest_list(int dirfd, const char *input, const char *output,
 			   struct tlv_struct *tlv)
 {
 	char filename[NAME_MAX + 1];
-	struct tlv_hdr *hdr;
 	const char *input_ptr = output;
 	int ret;
 
@@ -84,39 +84,27 @@ static int new_digest_list(int dirfd, const char *input, const char *output,
 		return -ENOMEM;
 	}
 
-	hdr = (struct tlv_hdr *)tlv->digest_list;
-	memset(hdr, 0, sizeof(*hdr));
-
-	hdr->data_type = __cpu_to_be64(DIGEST_LIST_FILE);
-	hdr->num_entries = 0;
-	hdr->total_len = 0;
+	tlv->num_entries = 0;
 	return 0;
 }
 
-static void write_entry(struct tlv_hdr *hdr, struct tlv_data_entry **entry,
-			__u16 field, __u8 *data, __u32 data_len,
-			bool update_data)
+static void write_entry(struct tlv_entry *outer_entry, struct tlv_entry **entry,
+			__u16 field, __u8 *data, __u32 data_len)
 {
-	__u16 num_entries;
-	__u32 total_len;
-	__u32 entry_len;
-
-	num_entries = __be32_to_cpu(hdr->num_entries);
-	total_len = __be32_to_cpu(hdr->total_len);
+	__u32 length;
 
 	(*entry)->field = __cpu_to_be16(field);
 	(*entry)->length = __cpu_to_be32(data_len);
+	memcpy((*entry)->data, data, data_len);
 
-	if (update_data)
-		memcpy((*entry)->data, data, data_len);
+	if (outer_entry) {
+		length = __be32_to_cpu(outer_entry->length);
+		length += sizeof(*(*entry)) + data_len;
+		outer_entry->length = __cpu_to_be32(length);
+	}
 
-	num_entries++;
-	entry_len = sizeof(*(*entry)) + data_len;
-	total_len += entry_len;
-
-	hdr->num_entries = __cpu_to_be32(num_entries);
-	hdr->total_len = __cpu_to_be32(total_len);
-	(*entry) = (struct tlv_data_entry *)((__u8 *)*entry + entry_len);
+	(*entry) = (struct tlv_entry *)((__u8 *)*entry + sizeof(*(*entry)) +
+					data_len);
 }
 
 void *tlv_list_gen_new(int __unused dirfd, char *input, char *output,
@@ -124,6 +112,7 @@ void *tlv_list_gen_new(int __unused dirfd, char *input, char *output,
 {
 	struct tlv_struct *tlv;
 	__u16 _algo;
+	__u32 _num_entries;
 	int ret;
 
 	tlv = malloc(sizeof(*tlv));
@@ -136,13 +125,18 @@ void *tlv_list_gen_new(int __unused dirfd, char *input, char *output,
 		return NULL;
 	}
 
-	tlv->outer_hdr = (struct tlv_hdr *)tlv->digest_list;
-	tlv->outer_entry = (struct tlv_data_entry *)(tlv->outer_hdr + 1);
+	tlv->outer_entry = (struct tlv_entry *)tlv->digest_list;
 	tlv->algo = algo;
 
 	_algo = __cpu_to_be16(algo);
-	write_entry(tlv->outer_hdr, &tlv->outer_entry, DIGEST_LIST_ALGO,
-		    (__u8 *)&_algo, sizeof(_algo), true);
+	write_entry(NULL, &tlv->outer_entry, DIGEST_LIST_ALGO,
+		    (__u8 *)&_algo, sizeof(_algo));
+
+	tlv->num_entries_entry = tlv->outer_entry;
+
+	_num_entries = 0;
+	write_entry(NULL, &tlv->outer_entry, DIGEST_LIST_NUM_ENTRIES,
+		    (__u8 *)&_num_entries, sizeof(_num_entries));
 	return tlv;
 }
 
@@ -150,8 +144,7 @@ int tlv_list_gen_add(int dirfd __unused, void *ptr, char *input)
 {
 	struct tlv_struct *tlv = (struct tlv_struct *)ptr;
 	__u8 digest[SHA512_DIGEST_SIZE];
-	struct tlv_hdr *inner_hdr;
-	struct tlv_data_entry *inner_entry;
+	struct tlv_entry *outer_entry, *inner_entry;
 	int ret;
 
 	ret = calc_file_digest(digest, input, tlv->algo);
@@ -160,29 +153,31 @@ int tlv_list_gen_add(int dirfd __unused, void *ptr, char *input)
 		return ret;
 	}
 
-	inner_hdr = (struct tlv_hdr *)(tlv->outer_entry + 1);
-	inner_hdr->data_type = __cpu_to_be64(DIGEST_LIST_ENTRY_DATA);
+	outer_entry = tlv->outer_entry;
+	inner_entry = outer_entry;
 
-	inner_entry = (struct tlv_data_entry *)(inner_hdr + 1);
+	write_entry(NULL, &inner_entry, DIGEST_LIST_ENTRY, NULL, 0);
+	write_entry(tlv->outer_entry, &inner_entry, DIGEST_LIST_ENTRY_DIGEST,
+		    digest, hash_digest_size[tlv->algo]);
+	write_entry(tlv->outer_entry, &inner_entry, DIGEST_LIST_ENTRY_PATH,
+		    (__u8 *)input, strlen(input) + 1);
 
-	write_entry(inner_hdr, &inner_entry, DIGEST_LIST_ENTRY_DIGEST, digest,
-		    hash_digest_size[tlv->algo], true);
-	write_entry(inner_hdr, &inner_entry, DIGEST_LIST_ENTRY_PATH,
-		    (__u8 *)input, strlen(input) + 1, true);
-
-	write_entry(tlv->outer_hdr, &tlv->outer_entry, DIGEST_LIST_ENTRY, NULL,
-		    (__u8 *)inner_entry - (__u8 *)inner_hdr, false);
+	tlv->num_entries++;
+	tlv->outer_entry = inner_entry;
 	return 0;
 }
 
 void tlv_list_gen_close(void *ptr)
 {
 	struct tlv_struct *tlv = (struct tlv_struct *)ptr;
+	__u32 _num_entries = __cpu_to_be32(tlv->num_entries);
 	int ret __unused;
+
+	*(__u32 *)tlv->num_entries_entry->data = _num_entries;
 
 	munmap(tlv->digest_list, DIGEST_LIST_SIZE_MAX);
 	ret = ftruncate(tlv->fd,
-			(__u8 *)tlv->outer_entry - (__u8 *)tlv->outer_hdr);
+			(__u8 *)tlv->outer_entry - tlv->digest_list);
 	close(tlv->fd);
 	free(tlv);
 }
