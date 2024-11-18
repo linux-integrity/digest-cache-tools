@@ -1,5 +1,6 @@
 SUBDIRS = docs \
 	  include \
+	  kernel-parsers \
 	  lib \
 	  rpm-plugin \
 	  src \

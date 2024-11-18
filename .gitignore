@@ -35,3 +35,10 @@ test-driver
 tests/*.log
 tests/*.trs
 tests/gen
+
+kernel-parsers/**/*.ko
+kernel-parsers/**/*.gcno
+kernel-parsers/**/*.mod*
+kernel-parsers/**/*.cmd
+kernel-parsers/**/Module.symvers
+kernel-parsers/**/modules.order

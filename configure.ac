@@ -84,6 +84,7 @@ AM_CONDITIONAL([CMOCKA], [test "$cmocka" = yes])
 AC_CONFIG_FILES([Makefile
 		 docs/Makefile
 		 include/Makefile
+		 kernel-parsers/Makefile
 		 lib/Makefile
 		 rpm-plugin/Makefile
 		 src/Makefile
