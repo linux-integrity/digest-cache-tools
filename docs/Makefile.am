@@ -7,3 +7,6 @@ digest-cache-tools.1: ../README.md
 
 %.1: %.txt
 	a2x --doctype manpage --format manpage $^
+
+clean-local:
+	rm -f *.1
