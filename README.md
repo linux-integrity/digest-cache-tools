@@ -3,20 +3,20 @@
 ## Introduction
 
 digest-cache-tools is the companion software of the recently developed
-digest_cache LSM.
+Integrity Digest Cache.
 
-The digest_cache LSM is a new LSM that collects digests from various sources
-(called digest lists), and stores them on demand in kernel memory, in a set of
-hash tables forming a digest cache. Extracted digests can be used as reference
-values for integrity verification of file content or metadata.
+The Integrity Digest Cache is a component that collects digests from various
+sources (called digest lists), and stores them on demand in kernel memory,
+in a set of hash tables forming a digest cache. Extracted digests can be used
+as reference values for integrity verification of file content or metadata.
 
-The digest_cache LSM helps IMA to extend a PCR in a deterministic way. IMA
-measures the list of digests coming from the distribution (e.g. RPM package
+The Integrity Digest Cache helps IMA to extend a PCR in a deterministic way.
+IMA measures the list of digests coming from the distribution (e.g. RPM package
 headers), and subsequently measures a file if it is not found in that list.
 
-The digest_cache LSM also helps IMA for appraisal. IMA can simply lookup in the
-list of digests extracted from package headers, once the signature of those
-headers has been verified.
+The Integrity Digest Cache also helps IMA for appraisal. IMA can simply lookup
+in the list of digests extracted from package headers, once the signature of
+those headers has been verified.
 
 
 ## Content
@@ -26,10 +26,11 @@ digest-cache-tools includes the following software:
 - ```manage_digest_lists```: a tool to generate/manage digest lists
 - ```digest_cache.so```: a rpm plugin to generate/delete digest lists when
   software is installed/removed through rpm
+- ```rpm.ko```: a kernel module containing a parser for RPM package headers
 
 ## Supported Digest List Formats
 
-The digest_cache LSM supports two formats:
+The Integrity Digest Cache supports two formats:
 
 - ```tlv```: a TLV-based format that can be extended later with more fields;
 - ```rpm```: RPM package headers (RPMTAG_IMMUTABLE)
@@ -50,28 +51,13 @@ $ make
 $ sudo make install
 ```
 
-### From Packages
-
-Built packages for openSUSE Tumbleweed can be found
-[here](https://download.opensuse.org/repositories/home:/roberto.sassu:/digest_cache/openSUSE_Tumbleweed/).
-
-After adding the new repository, install the packages by executing:
-
-```
-# zypper in kernel-default digest-cache-tools dracut
-```
-
-This command needs to be executed again, since zypper requires to specify the
-exact version of the software to be installed.
-
-
 ## Configuration
 
 
 ### 1. Generate digest lists from the RPM database
 
 The first step is to generate a digest list for each installed package, so that
-existing software is recognized by the digest_cache LSM.
+existing software is recognized by the Integrity Digest Cache.
 
 ```
 manage_digest_lists -o gen -d /etc/digest_lists -i rpmdb -f rpm
@@ -227,7 +213,7 @@ In addition, it is necessary to add:
 digest_cache=content pcr=12
 ```
 
-to the measurement rules for which the digest_cache LSM should be used, and:
+to the measurement rules for which the Integrity Digest Cache should be used, and:
 
 ```
 digest_cache=content
@@ -251,7 +237,7 @@ with the digest lists since systemd is executed from the disk (not the initial
 ram disk).
 
 If the measurement policy was selected, it is possible to verify that IMA used
-the digest_cache LSM, by looking at the IMA measurement list.
+the Integrity Digest Cache, by looking at the IMA measurement list.
 
 ```
 cat /sys/kernel/security/ima/ascii_runtime_measurements
@@ -268,12 +254,6 @@ kernel command line:
 ```
 ima_appraise=log
 ```
-
-In the openSUSE kernel, this option is disabled. Alternatively, it should be
-possible to boot another kernel with the rd.break=pre-pivot in the kernel
-command line. After remounting read-write /sysroot, it should be possible to
-rename /etc/ima/ima-policy, so that it is not automatically loaded by systemd
-at boot.
 
 ### 8. Enable prefetching to make PCR predictable (optional)
 
